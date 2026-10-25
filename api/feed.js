@@ -40,6 +40,33 @@ function linkOf(i) {
   return (alt && (alt["@_href"] || text(alt))) || text(i.guid);
 }
 
+// Finds the article's own lead image (so the picture always matches the headline).
+function imageOf(i) {
+  const okImg = (u) => typeof u === "string" && /^https?:\/\//.test(u) && !/\.(mp3|mp4|m4a|pdf)(\?|$)/i.test(u);
+  const pick = (x) => {
+    for (const m of arr(x)) {
+      const u = m && m["@_url"];
+      const type = (m && (m["@_type"] || m["@_medium"])) || "image";
+      if (okImg(u) && /image/.test(type)) return u;
+    }
+    return null;
+  };
+  let u =
+    pick(i["media:content"]) ||
+    pick(i["media:thumbnail"]) ||
+    pick(i["media:group"] && i["media:group"]["media:content"]) ||
+    pick(i.enclosure);
+  if (!u) {
+    const html = text(i["content:encoded"]) + text(i.description) + text(i.content) + text(i.summary);
+    const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (m && okImg(m[1].replace(/&amp;/g, "&"))) u = m[1].replace(/&amp;/g, "&");
+  }
+  if (!u) return null;
+  u = u.replace(/^http:\/\//, "https://");
+  u = u.replace(/\/standard\/\d+\//, "/standard/800/"); // BBC: request a bigger rendition
+  return u;
+}
+
 async function pull([source, url]) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 7000);
@@ -55,6 +82,7 @@ async function pull([source, url]) {
         link: linkOf(i),
         source,
         date: isNaN(d) ? null : d.toISOString(),
+        image: imageOf(i),
         summary: strip(i.description || i.summary || i["content:encoded"] || "").slice(0, 200),
       };
     }).filter((i) => i.title && /^https?:\/\//.test(i.link));

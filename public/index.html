@@ -37,6 +37,16 @@ nav a.on{color:var(--text);border-color:var(--acc)}
 .it .m{margin-top:5px;font-size:.8rem;color:var(--mute)}
 .it .m i{font:normal .78rem 'JetBrains Mono',monospace}
 .it .s{margin-top:5px;font-size:.88rem;color:var(--body)}
+.it.hasimg{display:flex;gap:14px;align-items:flex-start}
+.it .th{flex:0 0 112px;height:76px;border-radius:10px;overflow:hidden;background:var(--inset)}
+.it .th img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s}
+.it:hover .th img{transform:scale(1.06)}
+.it .tx{min-width:0;flex:1}
+.it.lead.hasimg{display:block}
+.it.lead .th{width:100%;height:auto;aspect-ratio:16/9;max-height:300px;margin-bottom:14px;border-radius:14px}
+.it.lead .t{font-size:1.4rem;line-height:1.25}
+.page .it .th{flex-basis:160px;height:104px}
+.page .it.lead .th{max-height:380px}
 .big{font-size:4rem;font-weight:700;color:var(--text);line-height:1;margin:14px 0 6px}
 .hours{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-top:16px}
 .h{flex:0 0 64px;background:var(--inset);border-radius:10px;padding:10px 4px;text-align:center;font-size:.8rem}
@@ -82,10 +92,13 @@ async function feed(sec,force){
   var d=await r.json();cache[sec]={t:Date.now(),d:d};return d}
 
 function item(i,lead,summary){
-  var a=el("a","it"+(lead?" lead":""));a.href=i.link;a.target="_blank";a.rel="noopener noreferrer";
-  a.appendChild(el("div","t",i.title));
-  var m=el("div","m");m.appendChild(document.createTextNode(i.source+" · "));m.appendChild(el("i","",ago(i.date)));a.appendChild(m);
-  if(summary&&i.summary)a.appendChild(el("div","s",i.summary));return a}
+  var a=el("a","it"+(lead?" lead":"")+(i.image?" hasimg":""));a.href=i.link;a.target="_blank";a.rel="noopener noreferrer";
+  if(i.image){var th=el("div","th"),im=el("img");im.src=i.image;im.alt="";im.loading="lazy";im.referrerPolicy="no-referrer";
+    im.onerror=function(){th.remove();a.classList.remove("hasimg")};th.appendChild(im);a.appendChild(th)}
+  var tx=el("div","tx");a.appendChild(tx);
+  tx.appendChild(el("div","t",i.title));
+  var m=el("div","m");m.appendChild(document.createTextNode(i.source+" · "));m.appendChild(el("i","",ago(i.date)));tx.appendChild(m);
+  if(summary&&i.summary)tx.appendChild(el("div","s",i.summary));return a}
 
 function panel(title,link,cls){var p=el("section","panel "+(cls||""));var h=el("div","pt");h.appendChild(el("span","",title));
   if(link){var a=el("a","","See all");a.href="#"+link;h.appendChild(a)}p.appendChild(h);return p}
@@ -95,7 +108,9 @@ async function fillList(p,sec,n,full,lead){
   skel(p,n>3?4:3);
   try{var d=await feed(sec);while(p.children.length>1)p.removeChild(p.lastChild);
     if(d.failed&&d.failed.length)failed=true;
-    var items=d.items.slice(0,n);if(!items.length)p.appendChild(el("div","empty","No items right now."));
+    var items=d.items.slice(0,n);
+    if(lead){var k0=items.findIndex(function(x,k){return x.image&&k<6});if(k0>0)items.unshift(items.splice(k0,1)[0])}
+    if(!items.length)p.appendChild(el("div","empty","No items right now."));
     items.forEach(function(i,k){p.appendChild(item(i,lead&&k===0,full))});stamp();
     if(full&&d.failed&&d.failed.length)p.appendChild(el("div","empty","Couldn’t reach: "+d.failed.join(", ")))
   }catch(e){while(p.children.length>1)p.removeChild(p.lastChild);failed=true;p.appendChild(el("div","empty","Couldn’t load this section. It will retry automatically."))}}
@@ -143,7 +158,7 @@ function home(v){
   var n=panel("Top headlines","news","span2"),w=panel("Weather","weather"),ga=panel("Gaming","gaming"),ind=panel("Industry & newsletters","industry","span2");
   g.append(n,w,ga,ind);v.appendChild(g);
   fillList(n,"news",4,false,true);weatherInto(w,false,function(){render()});fillList(ga,"gaming",4,false);fillList(ind,"industry",4,false)}
-function listView(v,sec){var p=panel(TITLES[sec]);v.appendChild(p);fillList(p,sec,30,true,true)}
+function listView(v,sec){var p=panel(TITLES[sec],"","page");v.appendChild(p);fillList(p,sec,30,true,true)}
 function weatherView(v){
   var g=el("div","grid");var p=panel("Weather","", "span2");g.appendChild(p);
   var s=panel("Next 7 days");g.appendChild(s);v.appendChild(g);
